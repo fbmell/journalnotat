@@ -12,7 +12,7 @@ nbv/edok/fejl.csv.
 
 e-dok-links bruger http://; her hentes via https://, som giver samme indhold.
 """
-import csv, datetime, html, json, os, re, subprocess, sys, time
+import csv, datetime, html, json, os, re, subprocess, sys, time, urllib.parse
 
 ROD = os.path.join(os.path.dirname(__file__), '..', 'nbv', 'edok')
 UA = 'Mozilla/5.0 (X11; Linux x86_64)'
@@ -121,7 +121,7 @@ def bilag():
                     if vent > 0:
                         time.sleep(vent)
                     _sidst = time.time()
-                    subprocess.run(['curl', '-sS', '--fail', '-m', '120', '-A', UA, '-o', ud, BASE + html.unescape(h)], check=True, capture_output=True)
+                    subprocess.run(['curl', '-sS', '--fail', '-m', '120', '-A', UA, '-o', ud, BASE + urllib.parse.quote(html.unescape(h), safe='/$')], check=True, capture_output=True)
                     if open(ud, 'rb').read(5) != b'%PDF-':
                         os.remove(ud)
                         raise RuntimeError('ikke en PDF (kræver formentlig login)')
