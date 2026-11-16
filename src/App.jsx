@@ -220,7 +220,7 @@ export default function App() {
         {/* Katalog */}
         <main className="flex min-w-0 flex-col gap-8">
           <p className="rounded-md border border-warn/30 bg-warn-soft px-4 py-3 text-sm text-warn">
-            <strong>Prototype.</strong> Kun emner med en kilde nederst på kortet er skrevet ud fra en retningslinje. Resten er eksempler.
+            <strong>Prototype.</strong> Kort mærket <strong>AUH</strong> bygger på lokale instrukser fra e-dok og går forud for nationale vejledninger. Kort uden kilde nederst er eksempler.
             Skriv ikke navn, CPR-nummer eller andre patientoplysninger i appen.
           </p>
 
@@ -333,6 +333,11 @@ function ModulKort({ modul, synligeLinjer, valg, skift, vaelgVaerdi, skiftModul,
               </svg>
               {modul.navn}
             </button>
+            {modul.lokal && (
+              <span className="ml-2 inline-block translate-y-[-1px] rounded-full bg-accent px-2 py-0.5 align-middle text-[0.68rem] font-semibold uppercase tracking-wider text-accent-ink">
+                AUH
+              </span>
+            )}
             {antalValgt > 0 && (
               <span className="ml-2 text-sm font-medium tabular-nums text-accent">
                 {antalValgt}/{modul.linjer.length}
@@ -420,8 +425,9 @@ function ModulKort({ modul, synligeLinjer, valg, skift, vaelgVaerdi, skiftModul,
       {vis && <footer className="border-t border-line px-4 py-2 text-xs text-muted">
         {modul.kilde ? (
           <>
-            <span className="font-semibold text-accent">Kilde: </span>
+            <span className="font-semibold text-accent">{modul.lokal ? 'Lokal instruks (e-dok): ' : 'Kilde: '}</span>
             {modul.kilde}
+            {modul.ogsaa && <span className="block">Se også: {modul.ogsaa}</span>}
           </>
         ) : (
           <span className="text-warn">Eksempel – ikke valideret mod retningslinje</span>
