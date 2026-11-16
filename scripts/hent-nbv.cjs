@@ -240,6 +240,25 @@ const selskaber = {
       .map((l) => ({ url: l.url, titel: l.tekst }))
   },
 
+  'dsko-onkologi': async () => {
+    const base = 'https://onkologi.dk/nbv/'
+    const ren1 = (u) => u.replace(/(%20)+$/, '').replace(/(%20)+\/$/, '/')
+    const forside = links(await hentHtml(base), base).map((l) => ({ ...l, url: ren1(l.url) }))
+    const menu = new Set(forside.map((l) => udenSlash(l.url)))
+    const emner = forside.filter((l) => /^https:\/\/onkologi\.dk\/nbv\/[^/]+\/?$/.test(l.url))
+    // Emnesiderne 'Onkologens ABC' og 'Understøttende behandling' har selv fagligt indhold
+    const ud = emner.filter((l) => /onkologens-abc|understoettende/.test(l.url)).map((l) => ({ url: l.url, titel: l.tekst }))
+    for (const emne of emner) {
+      for (const l of links(await hentHtml(emne.url), emne.url)) {
+        const url = ren1(l.url)
+        if (menu.has(udenSlash(url)) || !l.tekst) continue
+        if (/^https:\/\/onkologi\.dk\/nbv\/[^/]+\/?$/.test(url)) ud.push({ url, titel: l.tekst, bilag: true, menu: new Set(forside.map((x) => x.url)) })
+        else if (url.startsWith('https://onkologi.dk/wp-content/uploads/') && erPdfUrl(url)) ud.push({ url, titel: l.tekst })
+      }
+    }
+    return ud
+  },
+
   'nnbv-neurologi': async () => {
     const base = 'https://nnbv.dk/'
     const html = await hentHtml(base)
@@ -407,7 +426,7 @@ async function main() {
   if (browser) await browser.close()
   if (KUN_LISTE) return
   skrivManifest()
-  fs.writeFileSync(FEJL, '﻿' + ['selskab,titel,kilde_url,grund', ...fejl.map((f) => [f.selskab, f.titel, f.url, f.grund].map(csvFelt).join(','))].join('\n') + '\n')
+  if (!KUN && MAX === Infinity) fs.writeFileSync(FEJL, '﻿' + ['selskab,titel,kilde_url,grund', ...fejl.map((f) => [f.selskab, f.titel, f.url, f.grund].map(csvFelt).join(','))].join('\n') + '\n')
 
   console.log(`\nHentet: ${taeller.hentet} · Sprunget over (fandtes i forvejen): ${taeller.sprunget} · Fejlet: ${fejl.length}`)
   if (fejl.length) {
