@@ -3,6 +3,7 @@
 
     python3 scripts/hent-edok.py samlinger.txt       # én linje pr. samling: <unid> <navn>
     python3 scripts/hent-edok.py --unid X... "Navn"  # én samling
+    python3 scripts/hent-edok.py --bilag             # hent PDF-bilag til allerede hentede dokumenter
 
 For hver samling gemmes nbv/edok/<navn>/<mappe> - <titel>.txt (+ .html med den
 originale brødtekst). Allerede hentede dokumenter springes over. Der holdes ca. 1
@@ -95,7 +96,47 @@ def samling(unid, navn, manifest, fejl):
             print('  FEJL:', x['text'][:60], '–', str(e)[:80])
 
 
+def bilag():
+    """Henter PDF-bilag, som de allerede hentede dokumenter linker til, til <samling>/bilag/
+    og laver en tekstudgave (.txt) med pdftotext."""
+    n = fejl = 0
+    for rod, _, filer in os.walk(ROD):
+        if os.path.basename(rod) == 'bilag':
+            continue
+        for f in filer:
+            if not f.endswith('.html'):
+                continue
+            krop = open(os.path.join(rod, f), errors='replace').read()
+            hrefs = sorted(set(re.findall(r'href="(/edok/[^"]+?\.pdf)"', krop, flags=re.I)))
+            for h in hrefs:
+                navn = rent(f[:-5], 70) + ' - ' + rent(html.unescape(h.rsplit('/', 1)[-1]), 80)
+                mappe = os.path.join(rod, 'bilag')
+                os.makedirs(mappe, exist_ok=True)
+                ud = os.path.join(mappe, navn if navn.lower().endswith('.pdf') else navn + '.pdf')
+                if os.path.exists(ud):
+                    continue
+                try:
+                    global _sidst
+                    vent = 1.0 - (time.time() - _sidst)
+                    if vent > 0:
+                        time.sleep(vent)
+                    _sidst = time.time()
+                    subprocess.run(['curl', '-sS', '--fail', '-m', '120', '-A', UA, '-o', ud, BASE + html.unescape(h)], check=True, capture_output=True)
+                    if open(ud, 'rb').read(5) != b'%PDF-':
+                        os.remove(ud)
+                        raise RuntimeError('ikke en PDF (kræver formentlig login)')
+                    subprocess.run(['pdftotext', '-layout', ud, ud[:-4] + '.txt'], capture_output=True)
+                    n += 1
+                    print('  bilag:', os.path.relpath(ud, ROD))
+                except Exception as e:
+                    fejl += 1
+                    print('  FEJL bilag:', h[-60:], '–', str(e)[:80])
+    print(f'\nBilag hentet: {n} · Fejlet: {fejl}')
+
+
 def main():
+    if sys.argv[1] == '--bilag':
+        return bilag()
     if sys.argv[1] == '--unid':
         liste = [(sys.argv[2], sys.argv[3])]
     else:
