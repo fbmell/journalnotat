@@ -1,3 +1,6 @@
 node_modules
 dist
 .DS_Store
+
+# Hentede behandlingsvejledninger (ophavsretligt beskyttet – lægges ikke i et offentligt repo)
+nbv/
