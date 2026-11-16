@@ -1,7 +1,8 @@
 // Katalog over plan-linjer til intern medicinsk stuegang.
 //
-// OBS: Alt indhold her er EKSEMPLER og er ikke valideret mod
-// behandlingsvejledninger. Det skal gennemgås og rettes, før det bruges.
+// OBS: Moduler UDEN feltet `kilde` er EKSEMPLER og er ikke valideret mod
+// behandlingsvejledninger. Moduler MED `kilde` er skrevet ud fra den nævnte
+// retningslinje (titel, version, gældende fra).
 //
 // Struktur:
 //   omraade  – et organsystem/tema (vises i navigationen)
@@ -36,12 +37,32 @@ export const katalog = [
     moduler: [
       {
         id: 'laksantia',
-        navn: 'Lakserende behandling',
-        husk: ['Sidste afføring?', 'Får pt. opioid?'],
+        navn: 'Obstipation',
+        kilde: {
+          titel: 'Obstipation, regional retningslinje (Region Midtjylland)',
+          version: '8',
+          gaeldendeFra: '14-08-2026',
+        },
+        husk: [
+          'Sidste afføring og Bristol-type? Spørg dagligt',
+          'Obstiperende medicin: opioider, jern, diuretika, calcium, calciumantagonister, antidepressiva',
+          'Væskeindtag og mobilisering',
+          'Sterkoral diarré?',
+          'Afføring i rektum? (rektaleksploration)',
+          'Laksantia gives som udgangspunkt om aftenen – osmotisk først, peristaltikfremmende ved opioidudløst obstipation',
+        ],
         linjer: [
-          { id: 'movicol', tekst: 'Rp. Movicol 1 brev x {} dgl.', valg: ['1', '2'] },
-          { id: 'afforing', tekst: 'Afføringsskema' },
-          { id: 'klysma', tekst: 'Ved manglende afføring > 3 døgn: klysma' },
+          { id: 'movicol', tekst: 'Rp. macrogol (Movicol) 1 brev x {} dgl.', valg: ['1', '2', '3'] },
+          { id: 'magnesia', tekst: 'Rp. magnesiumhydroxid (Magnesia) {} dgl. (obs. nyrefunktion)', valg: ['500 mg x 1', '1.000 mg x 1', '500 mg x 2', '1.000 mg x 2'] },
+          { id: 'laktulose', tekst: 'Rp. laktulose {} dgl.', valg: ['10 ml x 1', '15 ml x 1', '10 ml x 2', '15 ml x 2'] },
+          { id: 'laxoberal', tekst: 'Rp. natriumpicosulfat (Laxoberal) {} dråber x 1 dgl.', valg: ['10', '15', '20'] },
+          { id: 'toilax-tabl', tekst: 'Rp. bisacodyl (Toilax) tabl. {} mg x 1 dgl.', valg: ['5', '10'] },
+          { id: 'rektal', tekst: 'Ved afføring i rektum: {}', valg: ['Toilax rektalvæske 5 ml', 'Glyoktyl klysma 7,5 ml', 'olieklysma 250 ml'] },
+          { id: 'akut-movicol', tekst: 'Akut udrensning: Movicol 8 breve i 1 liter vand over 6 timer' },
+          { id: 'akut-picoprep', tekst: 'Akut udrensning: PicoPrep 1 brev i min. 1,5 dl væske, evt. gentaget efter 6–12 timer' },
+          { id: 'tarmfunktion', tekst: 'Daglig observation af tarmfunktion (Bristol-skala)' },
+          { id: 'vaeske-mob', tekst: 'Sikre tilstrækkeligt væskeindtag og mobilisering' },
+          { id: 'med-obst', tekst: 'Medicingennemgang mhp. obstiperende lægemidler' },
         ],
       },
     ],
@@ -179,12 +200,25 @@ export const katalog = [
       {
         id: 'tromboseprofylakse',
         navn: 'Tromboseprofylakse',
-        husk: ['Risiko for venøs trombose?', 'Blødningsrisiko?', 'Allerede i AK-behandling?'],
+        kilde: {
+          titel: 'Tromboseprofylakse til medicinske patienter, AUH',
+          version: '10',
+          gaeldendeFra: '01-05-2025',
+        },
+        husk: [
+          'Sengeliggende med tidligere VTE → profylakse, hvis ikke i AK-behandling og ingen kontraindikationer',
+          'Overvej ved: kendt trombofili, paralytisk ben, aktiv cancer, betydende immobilisering, intensiv, alder > 60 år (som regel kun sammen med andre risikofaktorer)',
+          'Blødningsrisiko? (nyre-/leverinsufficiens, trombocytter < 50, blødning < 3 mdr., aktivt ulcus)',
+          'Mobilisering er vigtig profylakse',
+          'Præparat, dosis og varighed dokumenteres',
+        ],
         linjer: [
-          { id: 'fragmin', tekst: 'Rp. Fragmin 5.000 IE s.c. x 1 dgl. under indlæggelse' },
-          { id: 'ingen-prof', tekst: 'Ingen tromboseprofylakse pga. blødningsrisiko' },
-          { id: 'ak-fortsat', tekst: 'Vanlig AK-behandling fortsættes' },
-          { id: 'mobilisering', tekst: 'Tidlig mobilisering' },
+          { id: 'lmh', tekst: 'Rp. {} s.c. x 1 dgl. som tromboseprofylakse', valg: ['dalteparin 5.000 IE', 'enoxaparin 40 mg', 'tinzaparin 4.500 IE', 'fondaparinux 2,5 mg'] },
+          { id: 'varighed', tekst: 'Tromboseprofylakse fortsættes til: __' },
+          { id: 'mekanisk', tekst: 'Høj blødningsrisiko: ingen farmakologisk tromboseprofylakse, graduerede kompressionsstrømper' },
+          { id: 'ingen-ind', tekst: 'Ikke indikation for tromboseprofylakse efter samlet vurdering af trombose- og blødningsrisiko' },
+          { id: 'ak-fortsat', tekst: 'I forvejen i AK-behandling, som fortsættes' },
+          { id: 'mobilisering', tekst: 'Mobilisering' },
         ],
       },
     ],

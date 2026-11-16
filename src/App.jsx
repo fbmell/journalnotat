@@ -27,7 +27,20 @@ const EKSEMPEL_VALG = {
   'laksantia:movicol': '1',
   'diabetes:bs': '5',
   'diabetes:semglee': null,
-  'tromboseprofylakse:fragmin': null,
+  'tromboseprofylakse:lmh': 'dalteparin 5.000 IE',
+}
+
+// Fjerner gemte valg, der ikke længere findes i kataloget (eller har en udgået værdi).
+function kunKendte(gemt) {
+  const ud = {}
+  for (const o of katalog)
+    for (const m of o.moduler)
+      for (const l of m.linjer) {
+        const k = noegle(m.id, l.id)
+        if (!(k in gemt)) continue
+        ud[k] = l.valg ? (l.valg.includes(gemt[k]) ? gemt[k] : l.valg[0]) : null
+      }
+  return ud
 }
 
 function linjeTekst(linje, valgt) {
@@ -62,7 +75,7 @@ function matcher(soeg, ...tekster) {
 }
 
 export default function App() {
-  const [valg, setValg] = useState(() => laes(LAGER_NOEGLE, EKSEMPEL_VALG))
+  const [valg, setValg] = useState(() => kunKendte(laes(LAGER_NOEGLE, EKSEMPEL_VALG)))
   const [medOverskrifter, setMedOverskrifter] = useState(() => laes(`${LAGER_NOEGLE}:overskrifter`, true))
   const [fritekst, setFritekst] = useState('')
   const [soeg, setSoeg] = useState('')
@@ -207,7 +220,7 @@ export default function App() {
         {/* Katalog */}
         <main className="flex min-w-0 flex-col gap-8">
           <p className="rounded-md border border-warn/30 bg-warn-soft px-4 py-3 text-sm text-warn">
-            <strong>Prototype.</strong> Indholdet er eksempler og er ikke valideret mod behandlingsvejledninger.
+            <strong>Prototype.</strong> Kun emner med en kilde nederst på kortet er skrevet ud fra en retningslinje. Resten er eksempler.
             Skriv ikke navn, CPR-nummer eller andre patientoplysninger i appen.
           </p>
 
@@ -391,6 +404,16 @@ function ModulKort({ modul, synligeLinjer, valg, skift, vaelgVaerdi, skiftModul 
           )
         })}
       </ul>
+      <footer className="border-t border-line px-4 py-2 text-xs text-muted">
+        {modul.kilde ? (
+          <>
+            <span className="font-semibold text-accent">Kilde: </span>
+            {modul.kilde.titel}, version {modul.kilde.version}, gældende fra {modul.kilde.gaeldendeFra}
+          </>
+        ) : (
+          <span className="text-warn">Eksempel – ikke valideret mod retningslinje</span>
+        )}
+      </footer>
     </article>
   )
 }
