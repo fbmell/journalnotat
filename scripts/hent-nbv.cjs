@@ -259,6 +259,31 @@ const selskaber = {
     return ud
   },
 
+  // DSAM: hver vejledning er en lille webbog; kapitlerne følges via `under`
+  'dsam-almenmedicin': async () => {
+    const base = 'https://www.dsam.dk/vejledninger'
+    return links(await hentHtml(base), base)
+      .filter((l) => /^https:\/\/www\.dsam\.dk\/vejledninger\/[^/]+\/?$/.test(l.url))
+      .map((l) => ({ url: l.url, bilag: true, under: udenSlash(l.url) + '/' }))
+  },
+
+  // pro.medicin.dk: et udvalg af sygdomsartikler, der er relevante under indlæggelse
+  'promedicin': async () => {
+    const valgte = {
+      318155: 'Hyperkaliæmi', 318194: 'Hyperfosfatæmi', 318401: 'Forstyrrelser i calciumstofskiftet',
+      318264: 'Shockbehandling', 318331: 'Alkoholrelaterede problemer', 318263: 'Kvalme og opkastning',
+      318159: 'Smerter', 318285: 'Tromboemboliske sygdomme', 318149: 'Søvnløshed', 318262: 'Demens',
+      318645: 'Allergi over for antibiotika', 318409: 'Hjertearytmier', 318192: 'Hjerteinsufficiens',
+      318372: 'Akut koronart syndrom', 318336: 'Hypertensio arterialis', 318768: 'Ortostatisk hypotension',
+      318182: 'Virusinfektioner', 318153: 'Systemiske svampeinfektioner', 318314: 'Diabetes',
+      318272: 'Andre stofskiftesygdomme', 318400: 'Arthritis urica', 318269: 'Jernmangel',
+      318271: 'Megaloblastær anæmi', 318309: 'Obstipation', 318217: 'Levercirrose', 318199: 'Epilepsi',
+      318296: 'Astma og KOL', 318933: 'Kronisk nyresygdom', 318253: 'Osteoporose', 318214: 'Overfølsomhed',
+      318304: 'Infektiøse og inflammatoriske tarmsygdomme', 318222: 'Syrerelaterede sygdomme',
+    }
+    return Object.entries(valgte).map(([id, titel]) => ({ url: `https://pro.medicin.dk/Sygdomme/Sygdom/${id}`, titel }))
+  },
+
   'nnbv-neurologi': async () => {
     const base = 'https://nnbv.dk/'
     const html = await hentHtml(base)
@@ -358,7 +383,7 @@ async function hentEn(selskab, emne, brugte, koe) {
         const navn = l.tekst.length > 3 && !/^(her|pdf|link|download|hent)$/i.test(l.tekst) ? l.tekst : ''
         koe.tilfoej({ url: l.url, titel: navn && !/pdf/i.test(navn) ? `${titel} - ${navn}` : `${titel} (PDF${navn ? ' - ' + navn.replace(/\s*pdf\s*/i, ' ').trim() : ''})`.replace(' - )', ')') })
       } else if (emne.under && l.url.startsWith(emne.under) && udenSlash(l.url) !== udenSlash(emne.under) && l.tekst) {
-        koe.tilfoej({ url: l.url, titel: l.tekst, bilag: true, under: emne.under })
+        koe.tilfoej({ url: l.url, titel: `${titel} - ${l.tekst.replace(/arrow_\w+/g, '').trim()}`, bilag: true, under: emne.under })
       }
     }
   }
