@@ -173,9 +173,23 @@ export default function App() {
       planRef.current?.select()
     }
   }
+  // Ryd fjerner alle tilvalg og fritekst; kan fortrydes i nogle sekunder.
+  const [fortryd, setFortryd] = useState(null)
+  const fortrydTimer = useRef(null)
   function ryd() {
+    if (antal === 0 && !fritekst) return
+    setFortryd({ valg, fritekst })
     setValg({})
     setFritekst('')
+    clearTimeout(fortrydTimer.current)
+    fortrydTimer.current = setTimeout(() => setFortryd(null), 8000)
+  }
+  function fortrydRyd() {
+    if (!fortryd) return
+    setValg(fortryd.valg)
+    setFritekst(fortryd.fritekst)
+    setFortryd(null)
+    clearTimeout(fortrydTimer.current)
   }
 
   const planPanel = (
@@ -340,6 +354,21 @@ export default function App() {
         </aside>
       </div>
 
+      {/* Besked efter Ryd */}
+      {fortryd && (
+        <div
+          role="status"
+          className="fixed inset-x-0 bottom-20 z-50 flex justify-center px-4 lg:bottom-6"
+        >
+          <div className="flex items-center gap-4 rounded-lg bg-ink px-4 py-3 text-sm text-bg shadow-lg">
+            <span>Alle valg er ryddet</span>
+            <button type="button" onClick={fortrydRyd} className="font-semibold underline underline-offset-2">
+              Fortryd
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Bundbjælke (mobil) */}
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface lg:hidden px-[max(16px,env(safe-area-inset-left,0px))] pt-3 pb-[max(12px,env(safe-area-inset-bottom,0px))]">
         <div className="mx-auto flex max-w-xl items-center gap-3">
@@ -349,6 +378,14 @@ export default function App() {
             className="flex-1 rounded-md border border-line px-4 py-2.5 text-left text-sm font-semibold"
           >
             Plan <span className="ml-1 tabular-nums text-muted">({antal} valgt)</span>
+          </button>
+          <button
+            type="button"
+            onClick={ryd}
+            disabled={!plan}
+            className="rounded-md border border-line px-4 py-2.5 text-sm font-semibold text-muted disabled:opacity-40"
+          >
+            Ryd
           </button>
           <button
             type="button"
@@ -582,11 +619,11 @@ function PlanPanel({ plan, planRef, antal, medOverskrifter, setMedOverskrifter, 
           disabled={!plan}
           className="rounded-md border border-line px-4 py-2.5 text-sm font-semibold text-muted hover:text-ink disabled:opacity-40"
         >
-          Ryd
+          Ryd alle valg
         </button>
       </div>
       <p className="text-xs text-muted">
-        »__« markerer felter, du udfylder selv i journalen. Dine valg huskes i denne browser, indtil du trykker Ryd.
+        »__« markerer felter, du udfylder selv i journalen. Dine valg huskes i denne browser, indtil du trykker »Ryd alle valg«.
       </p>
     </div>
   )
