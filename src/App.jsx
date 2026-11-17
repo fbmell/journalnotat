@@ -174,6 +174,9 @@ export default function App() {
     }
   }
   // Ryd fjerner alle tilvalg og fritekst; kan fortrydes i nogle sekunder.
+  // Fold alle ud/ind: hvert tryk får et nyt nummer, så kortene reagerer, også ved gentagne tryk.
+  const [foldAlle, setFoldAlle] = useState({ aaben: false, n: 0 })
+  const fold = (aaben) => setFoldAlle((f) => ({ aaben, n: f.n + 1 }))
   const [fortryd, setFortryd] = useState(null)
   const fortrydTimer = useRef(null)
   function ryd() {
@@ -302,6 +305,27 @@ export default function App() {
             })}
           </div>
 
+          {synligt.length > 0 && (
+            <div className="-mb-4 flex justify-end gap-2">
+              {[
+                [true, 'Fold alle ud', 'm3 4.5 3 3 3-3'],
+                [false, 'Fold alle ind', 'm3 7.5 3-3 3 3'],
+              ].map(([aaben, tekst, sti]) => (
+                <button
+                  key={tekst}
+                  type="button"
+                  onClick={() => fold(aaben)}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-semibold text-muted hover:border-accent hover:text-accent"
+                >
+                  <svg viewBox="0 0 12 12" aria-hidden="true" className="h-3 w-3 fill-none stroke-current" strokeWidth="1.8">
+                    <path d={sti} />
+                  </svg>
+                  {tekst}
+                </button>
+              ))}
+            </div>
+          )}
+
           {synligt.length === 0 && (
             <p className="text-muted">
               {soeg ? `Ingen punkter matcher »${soeg}«.` : 'Ingen favoritter endnu. Skift til »Alle«, og sæt stjerne på de kort, du bruger dagligt.'}
@@ -324,6 +348,7 @@ export default function App() {
                   vaelgVaerdi={vaelgVaerdi}
                   skiftModul={skiftModul}
                   tvungetAaben={Boolean(soeg)}
+                  foldAlle={foldAlle}
                   favorit={favoritter.includes(modul.id)}
                   skiftFavorit={skiftFavorit}
                 />
@@ -416,10 +441,16 @@ export default function App() {
   )
 }
 
-function ModulKort({ modul, synligeLinjer, valg, skift, vaelgVaerdi, skiftModul, tvungetAaben, favorit, skiftFavorit }) {
+function ModulKort({ modul, synligeLinjer, valg, skift, vaelgVaerdi, skiftModul, tvungetAaben, foldAlle, favorit, skiftFavorit }) {
   const antalValgt = modul.linjer.filter((l) => noegle(modul.id, l.id) in valg).length
   const alleValgt = antalValgt === modul.linjer.length
-  const [aaben, setAaben] = useState(antalValgt > 0)
+  const [aaben, setAaben] = useState(foldAlle.n > 0 ? foldAlle.aaben : antalValgt > 0)
+  const sidstFoldet = useRef(foldAlle.n)
+  useEffect(() => {
+    if (foldAlle.n === sidstFoldet.current) return
+    sidstFoldet.current = foldAlle.n
+    setAaben(foldAlle.aaben)
+  }, [foldAlle])
   const vis = aaben || tvungetAaben
 
   return (
