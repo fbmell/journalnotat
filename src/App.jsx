@@ -265,7 +265,7 @@ export default function App() {
         {/* Katalog */}
         <main className="flex min-w-0 flex-col gap-8">
           <p className="rounded-md border border-warn/30 bg-warn-soft px-4 py-3 text-sm text-warn">
-            <strong>Prototype.</strong> Kort mærket <strong>AUH</strong> bygger på lokale instrukser fra e-dok og går forud for nationale vejledninger. Kort uden kilde er eksempler.
+            <strong>Prototype.</strong> Kort mærket <strong>AUH</strong> bygger på lokale instrukser fra e-dok og går forud for nationale vejledninger.
             Skriv ikke navn, CPR-nummer eller andre patientoplysninger i appen.
           </p>
 
