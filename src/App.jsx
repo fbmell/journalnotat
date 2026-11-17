@@ -37,6 +37,7 @@ const DAGLIGE = [
   'tromboseprofylakse', 'udskrivelse',
 ]
 const ALLE_KORT = katalog.flatMap((o) => o.moduler)
+const ALLE_NOEGLER = new Set(ALLE_KORT.flatMap((m) => m.linjer.map((l) => `${m.id}:${l.id}`)))
 
 // Fjerner gemte valg, der ikke længere findes i kataloget (eller har en udgået værdi).
 function kunKendte(gemt) {
@@ -98,8 +99,18 @@ export default function App() {
   useEffect(() => gem(`${LAGER_NOEGLE}:favoritter`, favoritter), [favoritter])
   const skiftFavorit = (id) =>
     setFavoritter((f) => (f.includes(id) ? f.filter((x) => x !== id) : [...f, id]))
+  // Enkelte linjer kan stjernemarkeres; kortet vises så i daglig visning med kun de linjer.
+  const [favoritLinjer, setFavoritLinjer] = useState(() => {
+    const gemt = laes(`${LAGER_NOEGLE}:favoritlinjer`, [])
+    return Array.isArray(gemt) ? gemt.filter((k) => ALLE_NOEGLER.has(k)) : []
+  })
+  useEffect(() => gem(`${LAGER_NOEGLE}:favoritlinjer`, favoritLinjer), [favoritLinjer])
+  const skiftFavoritLinje = (k) =>
+    setFavoritLinjer((f) => (f.includes(k) ? f.filter((x) => x !== k) : [...f, k]))
   const standardFavoritter =
-    favoritter.length === DAGLIGE.length && DAGLIGE.every((id) => favoritter.includes(id))
+    favoritLinjer.length === 0 &&
+    favoritter.length === DAGLIGE.length &&
+    DAGLIGE.every((id) => favoritter.includes(id))
   // I daglig visning vises favoritter og kort, der allerede er valgt noget fra. Søgning går altid i alt.
   const daglig = visning === 'daglig' && !soeg
 
@@ -115,12 +126,16 @@ export default function App() {
         .map((o) => ({
           ...o,
           moduler: o.moduler
-            .filter(
-              (m) =>
-                !daglig ||
-                favoritter.includes(m.id) ||
-                m.linjer.some((l) => noegle(m.id, l.id) in valg),
-            )
+            .map((m) => {
+              if (!daglig || favoritter.includes(m.id)) return m
+              // Daglig visning: kun stjernemarkerede og allerede valgte linjer.
+              const linjer = m.linjer.filter((l) => {
+                const k = noegle(m.id, l.id)
+                return favoritLinjer.includes(k) || k in valg
+              })
+              return linjer.length ? { ...m, linjer, delvis: true } : null
+            })
+            .filter(Boolean)
             .map((m) => {
               if (matcher(soeg, o.navn, m.navn)) return m
               const linjer = m.linjer.filter((l) => matcher(soeg, l.tekst))
@@ -129,7 +144,7 @@ export default function App() {
             .filter(Boolean),
         }))
         .filter((o) => o.moduler.length),
-    [soeg, daglig, favoritter, valg],
+    [soeg, daglig, favoritter, favoritLinjer, valg],
   )
 
   const antalIOmraade = (omraade) =>
@@ -150,10 +165,10 @@ export default function App() {
   function vaelgVaerdi(modulId, linje, vaerdi) {
     setValg((v) => ({ ...v, [noegle(modulId, linje.id)]: vaerdi }))
   }
-  function skiftModul(modul, alleValgt) {
+  function skiftModul(modul, alleValgt, linjer = modul.linjer) {
     setValg((v) => {
       const ny = { ...v }
-      for (const l of modul.linjer) {
+      for (const l of linjer) {
         const k = noegle(modul.id, l.id)
         if (alleValgt) delete ny[k]
         else if (!(k in ny)) ny[k] = l.valg ? l.valg[0] : null
@@ -328,7 +343,7 @@ export default function App() {
 
           {synligt.length === 0 && (
             <p className="text-muted">
-              {soeg ? `Ingen punkter matcher »${soeg}«.` : 'Ingen favoritter endnu. Skift til »Alle«, og sæt stjerne på de kort, du bruger dagligt.'}
+              {soeg ? `Ingen punkter matcher »${soeg}«.` : 'Ingen favoritter endnu. Skift til »Alle«, og sæt stjerne på de kort eller linjer, du bruger dagligt.'}
             </p>
           )}
           {visning === 'daglig' && soeg && (
@@ -343,6 +358,9 @@ export default function App() {
                   key={modul.id}
                   modul={ALLE_KORT.find((m) => m.id === modul.id)}
                   synligeLinjer={modul.linjer}
+                  delvis={Boolean(modul.delvis)}
+                  favoritLinjer={favoritLinjer}
+                  skiftFavoritLinje={skiftFavoritLinje}
                   valg={valg}
                   skift={skift}
                   vaelgVaerdi={vaelgVaerdi}
@@ -359,13 +377,19 @@ export default function App() {
           {daglig && (
             <p className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-line pt-4 text-sm text-muted">
               <span>
-                Viser {favoritter.length} favoritter af {ALLE_KORT.length} kort. Stjernen på et kort tilføjer eller fjerner det herfra.
+                Stjernen på et kort viser hele kortet her; stjernen på en linje viser kun den linje.
               </span>
               <button type="button" onClick={() => setVisning('alle')} className="font-semibold text-accent hover:underline">
                 Vis alle kort
               </button>
               {!standardFavoritter && (
-                <button type="button" onClick={() => setFavoritter(DAGLIGE)} className="font-semibold text-accent hover:underline">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFavoritter(DAGLIGE)
+                    setFavoritLinjer([])
+                  }}
+                  className="font-semibold text-accent hover:underline">
                   Nulstil til standard
                 </button>
               )}
@@ -441,9 +465,11 @@ export default function App() {
   )
 }
 
-function ModulKort({ modul, synligeLinjer, valg, skift, vaelgVaerdi, skiftModul, tvungetAaben, foldAlle, favorit, skiftFavorit }) {
+function ModulKort({ modul, synligeLinjer, valg, skift, vaelgVaerdi, skiftModul, tvungetAaben, foldAlle, favorit, skiftFavorit, delvis, favoritLinjer, skiftFavoritLinje }) {
   const antalValgt = modul.linjer.filter((l) => noegle(modul.id, l.id) in valg).length
-  const alleValgt = antalValgt === modul.linjer.length
+  const [visAlleLinjer, setVisAlleLinjer] = useState(false)
+  const viste = delvis && visAlleLinjer ? modul.linjer : synligeLinjer
+  const alleValgt = viste.every((l) => noegle(modul.id, l.id) in valg)
   const [aaben, setAaben] = useState(foldAlle.n > 0 ? foldAlle.aaben : antalValgt > 0)
   const sidstFoldet = useRef(foldAlle.n)
   useEffect(() => {
@@ -484,7 +510,7 @@ function ModulKort({ modul, synligeLinjer, valg, skift, vaelgVaerdi, skiftModul,
         <div className="flex shrink-0 items-center gap-2">
         {vis && <button
           type="button"
-          onClick={() => skiftModul(modul, alleValgt)}
+          onClick={() => skiftModul(modul, alleValgt, viste)}
           className="rounded-md border border-line px-2.5 py-1 text-xs font-semibold text-muted hover:border-accent hover:text-accent"
         >
           {alleValgt ? 'Fjern alle' : 'Tilføj alle'}
@@ -497,9 +523,7 @@ function ModulKort({ modul, synligeLinjer, valg, skift, vaelgVaerdi, skiftModul,
           onClick={() => skiftFavorit(modul.id)}
           className={`grid h-7 w-7 place-items-center rounded-md hover:bg-bg ${favorit ? 'text-accent' : 'text-muted'}`}
         >
-          <svg viewBox="0 0 20 20" aria-hidden="true" className={`h-[18px] w-[18px] stroke-current ${favorit ? 'fill-current' : 'fill-none'}`} strokeWidth="1.6" strokeLinejoin="round">
-            <path d="m10 2.5 2.3 4.7 5.2.8-3.8 3.6.9 5.2-4.6-2.5-4.6 2.5.9-5.2L2.5 8l5.2-.8Z" />
-          </svg>
+          <Stjerne fyldt={favorit} />
         </button>
         </div>
       </header>
@@ -511,9 +535,10 @@ function ModulKort({ modul, synligeLinjer, valg, skift, vaelgVaerdi, skiftModul,
       )}
 
       {vis && <ul className="border-t border-line">
-        {synligeLinjer.map((linje) => {
+        {viste.map((linje) => {
           const k = noegle(modul.id, linje.id)
           const valgt = k in valg
+          const linjeFavorit = favoritLinjer.includes(k)
           const [foer, efter] = linje.valg ? linje.tekst.split('{}') : [linje.tekst, '']
           return (
             <li key={linje.id} className={`border-b border-line last:border-b-0 ${valgt ? 'bg-accent-soft' : ''}`}>
@@ -567,11 +592,32 @@ function ModulKort({ modul, synligeLinjer, valg, skift, vaelgVaerdi, skiftModul,
                     </span>
                   )}
                 </div>
+                <button
+                  type="button"
+                  aria-pressed={linjeFavorit}
+                  aria-label={linjeFavorit ? 'Fjern linjen fra daglig visning' : 'Vis linjen i daglig visning'}
+                  title={linjeFavorit ? 'Fjern linjen fra daglig visning' : 'Vis linjen i daglig visning'}
+                  onClick={() => skiftFavoritLinje(k)}
+                  className={`-my-1 -mr-1.5 grid h-7 w-7 shrink-0 place-items-center rounded-md hover:bg-bg ${
+                    linjeFavorit ? 'text-accent' : 'text-muted opacity-40 hover:opacity-100'
+                  }`}
+                >
+                  <Stjerne fyldt={linjeFavorit} lille />
+                </button>
               </div>
             </li>
           )
         })}
       </ul>}
+      {vis && delvis && synligeLinjer.length < modul.linjer.length && (
+        <button
+          type="button"
+          onClick={() => setVisAlleLinjer(!visAlleLinjer)}
+          className="block w-full border-t border-line px-4 py-2 text-left text-sm font-semibold text-accent hover:bg-bg"
+        >
+          {visAlleLinjer ? 'Vis kun stjernemarkerede linjer' : `Vis alle ${modul.linjer.length} linjer`}
+        </button>
+      )}
       {vis && <footer className="border-t border-line px-4 py-2 text-xs text-muted">
         {modul.kilde ? (
           <>
@@ -584,6 +630,20 @@ function ModulKort({ modul, synligeLinjer, valg, skift, vaelgVaerdi, skiftModul,
         )}
       </footer>}
     </article>
+  )
+}
+
+function Stjerne({ fyldt, lille }) {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      aria-hidden="true"
+      className={`${lille ? 'h-4 w-4' : 'h-[18px] w-[18px]'} stroke-current ${fyldt ? 'fill-current' : 'fill-none'}`}
+      strokeWidth="1.6"
+      strokeLinejoin="round"
+    >
+      <path d="m10 2.5 2.3 4.7 5.2.8-3.8 3.6.9 5.2-4.6-2.5-4.6 2.5.9-5.2L2.5 8l5.2-.8Z" />
+    </svg>
   )
 }
 
