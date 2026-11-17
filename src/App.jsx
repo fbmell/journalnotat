@@ -30,6 +30,14 @@ const EKSEMPEL_VALG = {
   'tromboseprofylakse:lmh': 'dalteparin 5.000 IE',
 }
 
+// Kort i den daglige visning, indtil man selv har valgt favoritter med stjernen.
+const DAGLIGE = [
+  'diabetes', 'smertebehandling', 'laksantia', 'kvalme', 'antibiotika', 'ernaering', 'refeeding',
+  'vaeske', 'nyrer', 'delir', 'behandlingsniveau', 'ilt', 'resp-ovrigt', 'kredslob',
+  'tromboseprofylakse', 'udskrivelse',
+]
+const ALLE_KORT = katalog.flatMap((o) => o.moduler)
+
 // Fjerner gemte valg, der ikke længere findes i kataloget (eller har en udgået værdi).
 function kunKendte(gemt) {
   const ud = {}
@@ -81,6 +89,19 @@ export default function App() {
   const [soeg, setSoeg] = useState('')
   const [kopieret, setKopieret] = useState(false)
   const [planAaben, setPlanAaben] = useState(false)
+  const [visning, setVisning] = useState(() => (laes(`${LAGER_NOEGLE}:visning`, 'daglig') === 'alle' ? 'alle' : 'daglig'))
+  const [favoritter, setFavoritter] = useState(() => {
+    const gemt = laes(`${LAGER_NOEGLE}:favoritter`, DAGLIGE)
+    return (Array.isArray(gemt) ? gemt : DAGLIGE).filter((id) => ALLE_KORT.some((m) => m.id === id))
+  })
+  useEffect(() => gem(`${LAGER_NOEGLE}:visning`, visning), [visning])
+  useEffect(() => gem(`${LAGER_NOEGLE}:favoritter`, favoritter), [favoritter])
+  const skiftFavorit = (id) =>
+    setFavoritter((f) => (f.includes(id) ? f.filter((x) => x !== id) : [...f, id]))
+  const standardFavoritter =
+    favoritter.length === DAGLIGE.length && DAGLIGE.every((id) => favoritter.includes(id))
+  // I daglig visning vises favoritter og kort, der allerede er valgt noget fra. Søgning går altid i alt.
+  const daglig = visning === 'daglig' && !soeg
 
   useEffect(() => gem(LAGER_NOEGLE, valg), [valg])
   useEffect(() => gem(`${LAGER_NOEGLE}:overskrifter`, medOverskrifter), [medOverskrifter])
@@ -94,6 +115,12 @@ export default function App() {
         .map((o) => ({
           ...o,
           moduler: o.moduler
+            .filter(
+              (m) =>
+                !daglig ||
+                favoritter.includes(m.id) ||
+                m.linjer.some((l) => noegle(m.id, l.id) in valg),
+            )
             .map((m) => {
               if (matcher(soeg, o.navn, m.navn)) return m
               const linjer = m.linjer.filter((l) => matcher(soeg, l.tekst))
@@ -102,7 +129,7 @@ export default function App() {
             .filter(Boolean),
         }))
         .filter((o) => o.moduler.length),
-    [soeg],
+    [soeg, daglig, favoritter, valg],
   )
 
   const antalIOmraade = (omraade) =>
@@ -174,7 +201,25 @@ export default function App() {
             <h1 className="text-lg font-extrabold tracking-tight">Journalnotat</h1>
             <span className="hidden text-sm text-muted sm:inline">PLAN til intern medicinsk stuegang</span>
           </div>
-          <label className="relative ml-auto w-full sm:w-80" htmlFor="soeg">
+          <div className="ml-auto inline-flex overflow-hidden rounded-md border border-line text-sm font-semibold" role="group" aria-label="Visning">
+            {[
+              ['daglig', 'Daglig'],
+              ['alle', `Alle ${ALLE_KORT.length}`],
+            ].map(([id, tekst]) => (
+              <button
+                key={id}
+                type="button"
+                aria-pressed={visning === id}
+                onClick={() => setVisning(id)}
+                className={`px-3 py-1.5 border-l border-line first:border-l-0 ${
+                  visning === id ? 'bg-accent text-accent-ink' : 'bg-surface text-muted hover:text-ink'
+                }`}
+              >
+                {tekst}
+              </button>
+            ))}
+          </div>
+          <label className="relative w-full sm:w-72" htmlFor="soeg">
             <span className="sr-only">Søg</span>
             <svg aria-hidden="true" viewBox="0 0 20 20" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-muted" strokeWidth="2">
               <circle cx="9" cy="9" r="6" />
@@ -196,7 +241,7 @@ export default function App() {
         {/* Emner */}
         <nav aria-label="Emner" className="hidden lg:block">
           <ul className="sticky top-20 flex flex-col gap-0.5">
-            {katalog.map((o) => {
+            {synligt.map((o) => {
               const n = antalIOmraade(o)
               return (
                 <li key={o.id}>
@@ -220,13 +265,13 @@ export default function App() {
         {/* Katalog */}
         <main className="flex min-w-0 flex-col gap-8">
           <p className="rounded-md border border-warn/30 bg-warn-soft px-4 py-3 text-sm text-warn">
-            <strong>Prototype.</strong> Kort mærket <strong>AUH</strong> bygger på lokale instrukser fra e-dok og går forud for nationale vejledninger. Kort uden kilde nederst er eksempler.
+            <strong>Prototype.</strong> Kort mærket <strong>AUH</strong> bygger på lokale instrukser fra e-dok og går forud for nationale vejledninger. Kort uden kilde er eksempler.
             Skriv ikke navn, CPR-nummer eller andre patientoplysninger i appen.
           </p>
 
           {/* Emne-chips på mobil */}
           <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 lg:hidden">
-            {katalog.map((o) => {
+            {synligt.map((o) => {
               const n = antalIOmraade(o)
               return (
                 <a
@@ -244,7 +289,12 @@ export default function App() {
           </div>
 
           {synligt.length === 0 && (
-            <p className="text-muted">Ingen punkter matcher »{soeg}«.</p>
+            <p className="text-muted">
+              {soeg ? `Ingen punkter matcher »${soeg}«.` : 'Ingen favoritter endnu. Skift til »Alle«, og sæt stjerne på de kort, du bruger dagligt.'}
+            </p>
+          )}
+          {visning === 'daglig' && soeg && (
+            <p className="text-sm text-muted">Søgningen dækker alle kort, også dem uden for den daglige visning.</p>
           )}
 
           {synligt.map((omraade) => (
@@ -253,17 +303,35 @@ export default function App() {
               {omraade.moduler.map((modul) => (
                 <ModulKort
                   key={modul.id}
-                  modul={katalog.flatMap((o) => o.moduler).find((m) => m.id === modul.id)}
+                  modul={ALLE_KORT.find((m) => m.id === modul.id)}
                   synligeLinjer={modul.linjer}
                   valg={valg}
                   skift={skift}
                   vaelgVaerdi={vaelgVaerdi}
                   skiftModul={skiftModul}
                   tvungetAaben={Boolean(soeg)}
+                  favorit={favoritter.includes(modul.id)}
+                  skiftFavorit={skiftFavorit}
                 />
               ))}
             </section>
           ))}
+
+          {daglig && (
+            <p className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-line pt-4 text-sm text-muted">
+              <span>
+                Viser {favoritter.length} favoritter af {ALLE_KORT.length} kort. Stjernen på et kort tilføjer eller fjerner det herfra.
+              </span>
+              <button type="button" onClick={() => setVisning('alle')} className="font-semibold text-accent hover:underline">
+                Vis alle kort
+              </button>
+              {!standardFavoritter && (
+                <button type="button" onClick={() => setFavoritter(DAGLIGE)} className="font-semibold text-accent hover:underline">
+                  Nulstil til standard
+                </button>
+              )}
+            </p>
+          )}
         </main>
 
         {/* Plan (desktop) */}
@@ -311,7 +379,7 @@ export default function App() {
   )
 }
 
-function ModulKort({ modul, synligeLinjer, valg, skift, vaelgVaerdi, skiftModul, tvungetAaben }) {
+function ModulKort({ modul, synligeLinjer, valg, skift, vaelgVaerdi, skiftModul, tvungetAaben, favorit, skiftFavorit }) {
   const antalValgt = modul.linjer.filter((l) => noegle(modul.id, l.id) in valg).length
   const alleValgt = antalValgt === modul.linjer.length
   const [aaben, setAaben] = useState(antalValgt > 0)
@@ -319,7 +387,7 @@ function ModulKort({ modul, synligeLinjer, valg, skift, vaelgVaerdi, skiftModul,
 
   return (
     <article className="overflow-hidden rounded-lg border border-line bg-surface">
-      <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 px-4 py-3">
+      <header className="flex items-start justify-between gap-x-3 px-4 py-3">
         <div className="min-w-0">
           <h3 className="text-base font-bold">
             <button
@@ -344,21 +412,35 @@ function ModulKort({ modul, synligeLinjer, valg, skift, vaelgVaerdi, skiftModul,
               </span>
             )}
           </h3>
-          {vis && modul.husk?.length > 0 && (
-            <p className="mt-1 text-sm text-muted">
-              <span className="font-semibold text-ink/70">Husk: </span>
-              {modul.husk.join(' · ')}
-            </p>
-          )}
         </div>
+        <div className="flex shrink-0 items-center gap-2">
         {vis && <button
           type="button"
           onClick={() => skiftModul(modul, alleValgt)}
-          className="shrink-0 rounded-md border border-line px-2.5 py-1 text-xs font-semibold text-muted hover:border-accent hover:text-accent"
+          className="rounded-md border border-line px-2.5 py-1 text-xs font-semibold text-muted hover:border-accent hover:text-accent"
         >
           {alleValgt ? 'Fjern alle' : 'Tilføj alle'}
         </button>}
+        <button
+          type="button"
+          aria-pressed={favorit}
+          aria-label={favorit ? `Fjern ${modul.navn} fra daglig visning` : `Vis ${modul.navn} i daglig visning`}
+          title={favorit ? 'Fjern fra daglig visning' : 'Vis i daglig visning'}
+          onClick={() => skiftFavorit(modul.id)}
+          className={`grid h-7 w-7 place-items-center rounded-md hover:bg-bg ${favorit ? 'text-accent' : 'text-muted'}`}
+        >
+          <svg viewBox="0 0 20 20" aria-hidden="true" className={`h-[18px] w-[18px] stroke-current ${favorit ? 'fill-current' : 'fill-none'}`} strokeWidth="1.6" strokeLinejoin="round">
+            <path d="m10 2.5 2.3 4.7 5.2.8-3.8 3.6.9 5.2-4.6-2.5-4.6 2.5.9-5.2L2.5 8l5.2-.8Z" />
+          </svg>
+        </button>
+        </div>
       </header>
+      {vis && modul.husk?.length > 0 && (
+        <p className="px-4 pb-3 text-sm text-muted">
+          <span className="font-semibold text-ink/70">Husk: </span>
+          {modul.husk.join(' · ')}
+        </p>
+      )}
 
       {vis && <ul className="border-t border-line">
         {synligeLinjer.map((linje) => {
